@@ -39,7 +39,7 @@ public:
     int InsNum;
     const uint32_t Hash_Mask;
     int hash_seed = 0;
-
+    int hash_byte=0;
     double memory_efficiency = 0.0;
     // bucket struct
     struct bucket
@@ -80,18 +80,20 @@ public:
         }
     } B[Var_NUM];
 
-    inline uint32_t multiply_high_u32(uint32_t x, uint32_t y) const
+    inline uint16_t multiply_high_u16(uint16_t x, uint32_t y) const
     {
-        return (uint32_t)(((uint64_t)x * (uint64_t)y) >> 32);
+        return (uint16_t)(((uint64_t)x * (uint64_t)y) >> 16);
     }
 
     // calculate 3 hash
     inline void calc_mapping_hash(uint32_t key, uint32_t *hash)
     {
-        for (int j = 0; j < HASH_NUM; j++)
-            hash[j] = multiply_high_u32(MurmurHash3_x86_32(&key, 4, j + hash_seed),
-                                        Hash_Mask) +
-                      j * Hash_Mask;
+        uint16_t out[8];
+        const void* key_ptr = &key;
+        MurmurHash3_x86_128(key_ptr, sizeof(key), hash_seed, out);
+        hash[0]=multiply_high_u16(out[0]+out[1], Hash_Mask);
+        hash[1]=multiply_high_u16(out[0]+out[2], Hash_Mask)+Hash_Mask;
+        hash[2]=multiply_high_u16(out[0]+out[3], Hash_Mask)+(Hash_Mask<<1);
     }
 
     // return the estimated cost for adjusting
@@ -325,15 +327,7 @@ public:
     inline void queryDP(uint32_t &key, uint32_t &v)
     {
         uint32_t hash[HASH_NUM];
-        uint32_t cur_Mask = 0;
-        for (int j = 0; j < HASH_NUM; j++)
-        {
-            hash[j] = multiply_high_u32(MurmurHash3_x86_32(&key, 4, j + hash_seed),
-                                        Hash_Mask) +
-                      cur_Mask;
-            cur_Mask += Hash_Mask;
-        }
-
+        calc_mapping_hash(key, hash);
         v = (DP[hash[0]] ^ DP[hash[1]] ^ DP[hash[2]]);
     }
 
@@ -409,7 +403,13 @@ public:
             DP.push_back(B[i].A);
         }
     }
-
+    int countall() {
+        int ans=0;
+        for(int i=0;i<Var_NUM;i++){
+            ans+= B[i].counter;
+        }
+        return ans;
+    }
     // insert a KV pair
     bool insert_pair(uint32_t key, uint32_t value)
     {

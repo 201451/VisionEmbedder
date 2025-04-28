@@ -31,16 +31,17 @@ int read_data(string fname){
 void test(){
     // nn = number of KV pairs
     constexpr int nn = 100000;
-    auto DBF = new DynamicBloomierFilter_Single< (uint32_t)(nn * 1.70 * 3.0) / 3u, 8u>();
-   
+    auto DBF = new DynamicBloomierFilter_Single< (uint32_t)(nn * 1.70), 8u>();
     srand((int)time(0));
     srand(time(0));
+    DBF->hash_byte = 4;
     DBF->hash_seed = rand();
+    cout<<"range="<<DBF->Hash_Mask<<endl;
     
     timespec dtime1, dtime2;
     clock_gettime(CLOCK_MONOTONIC, &dtime1);
     int t;
-    for (t = 0; t < nn; t++){   
+    for (t = 0; t < nn; ++t){   
         if(!DBF->insert_pair(test_data[t].first, test_data[t].second)){
             cout << "Failed at key " << t << endl;
             break;
@@ -69,6 +70,22 @@ void test(){
     printf("Lookup Throughput: %.5lf MOPS.\n", dth);
 
     cout << "Error Cnt: " << error_cnt << endl;
+
+    size_t total_keys = 0;
+    size_t total_buckets = 0;
+    size_t total_memory = 0;
+    for (int i = 0; i < (int)(nn * 1.70); ++i) {
+        auto &b = DBF->B[i];
+        total_keys += b.counter;
+        if(b.counter>0) {
+            total_buckets++;
+        }
+        total_memory += sizeof(b.counter) + sizeof(b.A) + sizeof(b.ifModified) + sizeof(b.layer1mem);
+        if (b.layer2mem != nullptr) {
+            total_memory += sizeof(uint32_t) * (b.counter - 4); // layer2mem里存储的元素
+        }
+    }
+    cout<<"Memory per key="<<1.0*total_buckets/nn<<endl;
 }
 
 
