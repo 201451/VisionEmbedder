@@ -65,7 +65,7 @@ public:
             {
                 layer1mem[counter] = value;
             }
-            counter++;
+            ++counter;
         }
         uint32_t query_mem(int index)
         {
@@ -103,7 +103,7 @@ public:
             return B[pos].counter;
 
         double sum = 1;
-        for (int i = 0; i < B[pos].counter; i++)
+        for (int i = 0; i < B[pos].counter; ++i)
         {
             int key_i = B[pos].query_mem(i);
             if (key != key_i)
@@ -111,7 +111,7 @@ public:
                 uint32_t hash[HASH_NUM];
                 calc_mapping_hash(key, hash);
                 double minval = 1e9;
-                for (int j = 0; j < HASH_NUM; j++)
+                for (int j = 0; j < HASH_NUM; ++j)
                 {
                     int a = hash[j], b = hash[next(j)], c = hash[next(next(j))];
                     if (a != pos && B[a].ifModified == false)
@@ -136,12 +136,12 @@ public:
             return false;
         }
 
-        lvl++;
+        ++lvl;
 
         int mo = -1;
         double minoverhead = 1e12;
         double look;
-        for (int j = 0; j < HASH_NUM; j++)
+        for (int j = 0; j < HASH_NUM; ++j)
         {
             if (B[hash[j]].ifModified != false)
             {
@@ -168,18 +168,18 @@ public:
 
         if (value != -1)
         {
-            for (int j = 0; j < HASH_NUM; j++)
+            for (int j = 0; j < HASH_NUM; ++j)
             {
                 B[hash[j]].insert_mem(key);
             }
 
             uint32_t sum = value;
-            for (int j = 0; j < HASH_NUM; j++)
+            for (int j = 0; j < HASH_NUM; ++j)
             {
                 sum = sum ^ B[hash[j]].A;
             }
 
-            for (int j = 0; j < HASH_NUM; j++)
+            for (int j = 0; j < HASH_NUM; ++j)
             {
                 int a = hash[mo], b = hash[next(mo)], c = hash[next(next(mo))], oldSize = -1;
                 if (B[a].ifModified == false)
@@ -190,7 +190,7 @@ public:
                     modify_stk.push(a);
 
                     bool ret = true;
-                    for (int i = 0; i < B[a].counter; i++)
+                    for (int i = 0; i < B[a].counter; ++i)
                     {
                         int key_i = B[a].query_mem(i);
                         if (key_i == key)
@@ -231,7 +231,7 @@ public:
         else
         {
             uint32_t oldA = 0, olddp = 0;
-            for (int j = 0; j < HASH_NUM; j++)
+            for (int j = 0; j < HASH_NUM; ++j)
             {
                 int a = hash[mo], b = hash[next(mo)], c = hash[next(next(mo))], oldSize = -1;
                 if (B[a].ifModified == false)
@@ -242,7 +242,7 @@ public:
                     modify_stk.push(a);
 
                     bool ret = true;
-                    for (int i = 0; i < B[a].counter; i++)
+                    for (int i = 0; i < B[a].counter; ++i)
                     {
                         int key_i = B[a].query_mem(i);
                         if (key_i == key)
@@ -289,7 +289,7 @@ public:
     // constructor
     DynamicBloomierFilter_Single(int _hash_seed = 100) : hash_seed(_hash_seed), Hash_Mask((int)Var_NUM / 3), InsNum(0)
     {
-        for (int i = 0; i < Var_NUM; i++)
+        for (int i = 0; i < Var_NUM; ++i)
         {
             B[i].A = 0;
             B[i].counter = 0;
@@ -302,7 +302,7 @@ public:
     // destructor
     ~DynamicBloomierFilter_Single()
     {
-        for (int i = 0; i < Var_NUM; i++)
+        for (int i = 0; i < Var_NUM; ++i)
         {
             B[i].A = 0;
             B[i].counter = 0;
@@ -336,16 +336,16 @@ public:
     {
         cout << "\nCounter Summary:\n";
         int maxcnt = 0;
-        for (int i = 0; i < Var_NUM; i++)
+        for (int i = 0; i < Var_NUM; ++i)
         {
             maxcnt = max(maxcnt, B[i].counter);
         }
         int cnt[2000] = {};
-        for (int i = 0; i < Var_NUM; i++)
+        for (int i = 0; i < Var_NUM; ++i)
         {
-            cnt[B[i].counter]++;
+            ++cnt[B[i].counter];
         }
-        for (int i = 0; i <= maxcnt; i++)
+        for (int i = 0; i <= maxcnt; ++i)
         {
             printf("Number of %d counter is %d\n", i, cnt[i]);
         }
@@ -356,12 +356,12 @@ public:
     void check_error(vector<pair<uint32_t, int>> &data)
     {
         int falsecnt = 0;
-        for (int i = 0; i < InsNum; i++)
+        for (int i = 0; i < InsNum; ++i)
         {
             int correct_v = data[i].second;
             if (query(data[i].first) != correct_v)
             {
-                falsecnt++;
+                ++falsecnt;
                 // if (falsecnt <= 10)
                 //     cout << i << " ";
             }
@@ -380,7 +380,7 @@ public:
             map<int, int>::iterator iterator(mapCount.find(ve[i]));
             if (iterator != mapCount.end())
             {
-                iterator->second++;
+                ++iterator->second;
             }
             else
             {
@@ -398,14 +398,14 @@ public:
 
     void exportDP()
     {
-        for (int i = 0; i < Var_NUM; i++)
+        for (int i = 0; i < Var_NUM; ++i)
         {
             DP.push_back(B[i].A);
         }
     }
     int countall() {
         int ans=0;
-        for(int i=0;i<Var_NUM;i++){
+        for(int i=0;i<Var_NUM;++i){
             ans+= B[i].counter;
         }
         return ans;
@@ -414,7 +414,7 @@ public:
     bool insert_pair(uint32_t key, uint32_t value)
     {
         // cout << key <<" " << value << endl;
-        InsNum++;
+        ++InsNum;
         // cout << InsNum << endl;
         memory_efficiency = (double)InsNum / Var_NUM;
         uint32_t hash[HASH_NUM];
@@ -438,7 +438,7 @@ public:
 
     void initial()
     {
-        for (int i = 0; i < Var_NUM; i++)
+        for (int i = 0; i < Var_NUM; ++i)
         {
             B[i].A = 0;
             B[i].counter = 0; // counter for value stored in this bucket
@@ -460,20 +460,20 @@ public:
         cout << "Build with dataset consisting of " << size << " KV pair(s)."
              << endl;
         bool success = true;
-        build_count++;
+        ++build_count;
         while (true)
         {
-            for (int i = 0; i < size; i++)
+            for (int i = 0; i < size; ++i)
             {
                 this->insert_pair(data[i].first, data[i].second);
             }
 
             int errcnt = 0;
-            for (int i = 0; i < size; i++)
+            for (int i = 0; i < size; ++i)
             {
                 auto res = this->query(data[i].first);
                 if (res != data[i].second)
-                    errcnt++;
+                    ++errcnt;
             }
             if (errcnt)
             {
