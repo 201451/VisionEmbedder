@@ -41,6 +41,11 @@ public:
     int hash_seed = 0;
     int hash_byte=0;
     double memory_efficiency = 0.0;
+    uint64_t Bias_Range;
+    uint64_t Bias_Mask;
+    uint64_t fir_block;
+    uint64_t fir_block_mask;
+    int sec_index,thi_index;
     // bucket struct
     struct bucket
     {
@@ -80,20 +85,31 @@ public:
         }
     } B[Var_NUM];
 
-    inline uint16_t multiply_high_u16(uint16_t x, uint32_t y) const
-    {
-        return (uint16_t)(((uint64_t)x * (uint64_t)y) >> 16);
+    inline uint32_t multiply_high_u32(uint32_t x, uint32_t y,uint32_t len) const {
+        return (uint32_t)(((uint64_t)x * (uint64_t)y) >> len);
     }
-
+    inline uint32_t mo(uint32_t x) const {
+        return x>=Hash_Mask?x-Hash_Mask:x;
+    }
     // calculate 3 hash
     inline void calc_mapping_hash(uint32_t key, uint32_t *hash)
     {
-        uint16_t out[8];
         const void* key_ptr = &key;
-        MurmurHash3_x86_128(key_ptr, sizeof(key), hash_seed, out);
-        hash[0]=multiply_high_u16(out[0]+out[1], Hash_Mask);
-        hash[1]=multiply_high_u16(out[0]+out[2], Hash_Mask)+Hash_Mask;
-        hash[2]=multiply_high_u16(out[0]+out[3], Hash_Mask)+(Hash_Mask<<1);
+        uint64_t h=MurmurHash64B(key_ptr, sizeof(key), hash_seed);
+        uint64_t x=h&fir_block_mask;
+        h>>=fir_block;
+        uint64_t y=h&Bias_Mask;
+        h>>=Bias_Range;
+        uint64_t z=h&Bias_Mask; 
+        assert(y<=Bias_Mask && z<=Bias_Mask);
+        // x%=Hash_Mask;
+        x=multiply_high_u32(x,Hash_Mask,fir_block);
+        hash[0]=x;
+        hash[1]=mo(x+y)+sec_index;
+        hash[2]=mo(x+z)+thi_index;
+        // hash[0]=(x%Hash_Mask);
+        // hash[1]=(hash[0]+y)%Hash_Mask+sec_index;
+        // hash[2]=(hash[0]+z)%Hash_Mask+thi_index;
     }
 
     // return the estimated cost for adjusting
@@ -289,6 +305,15 @@ public:
     // constructor
     DynamicBloomierFilter_Single(int _hash_seed = 100) : hash_seed(_hash_seed), Hash_Mask((int)Var_NUM / 3), InsNum(0)
     {
+        Bias_Range=0;
+        for(int i=1;i<(Hash_Mask>>1);i<<=1,++Bias_Range);
+        Bias_Mask=(1LL<<Bias_Range)-1;
+        cout<<"Bias_Range="<<Bias_Range<<endl;
+        cout<<"Bias_Mask="<<Bias_Mask<<endl;
+        fir_block=min((uint64_t)25,64-(Bias_Range<<1));
+        fir_block_mask=(1LL<<fir_block)-1;
+        sec_index=Hash_Mask;
+        thi_index=Hash_Mask<<1;
         for (int i = 0; i < Var_NUM; ++i)
         {
             B[i].A = 0;
@@ -418,13 +443,10 @@ public:
         // cout << InsNum << endl;
         memory_efficiency = (double)InsNum / Var_NUM;
         uint32_t hash[HASH_NUM];
-        calc_mapping_hash(key, hash);
-
-        // if(InsNum==99456)
-        //   cout<<"st from"<<hash[0]<<" "<<hash[1]<<" "<<hash[2]<<endl;
+        calc_mapping_hash(key, hash); 
+        // cout<<hash[0]<<" "<<hash[1]<<" "<<hash[2]<<endl;
+        // cout<<(0<=hash[0] && hash[0]<Hash_Mask)<<" "<<(sec_index<=hash[1] && hash[1]<thi_index)<<" "<<(thi_index<=hash[2] && hash[2]<Var_NUM)<<endl;
         uint32_t lvl = 0;
-        // stk = 0;
-        // use B[a].ifModified to replace modify_set
         stack<uint32_t> modify_stk;
         if (adjust(key, hash, value, 0, lvl, modify_stk))
         {
